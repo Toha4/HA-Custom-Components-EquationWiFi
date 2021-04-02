@@ -1,5 +1,4 @@
 # custom_components для добавления терморегулятора Equation WiFi в HA
-![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/Equation.jpg?raw=true "Screenshot")
 
 Обмен данными происходит через API SST-Cloud.
 
@@ -29,3 +28,4 @@ climate:
 
 ![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/climate.JPG?raw=true "Screenshot")
 ![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/details.PNG?raw=true "Screenshot")
+![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/Equation.jpg?raw=true "Screenshot")
