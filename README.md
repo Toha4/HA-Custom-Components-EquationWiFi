@@ -2,7 +2,7 @@
 
 Обмен данными происходит через API SST-Cloud.
 
-######configuration.yaml:
+###### configuration.yaml:
 
 ```
 climate:
