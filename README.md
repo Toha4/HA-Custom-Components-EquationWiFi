@@ -26,5 +26,5 @@ climate:
 | `boost_temp`           | (дополнительный параметр) Температура для турбо режима       |
 | `sleep_temp`           | (дополнительный параметр) Температура для ночного режима		|
 
-![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/climate.png?raw=true "Screenshot")
-![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/details.png?raw=true "Screenshot")
+![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/climate.JPG?raw=true "Screenshot")
+![alt tag](https://github.com/Toha4/HA-Custom-Components-EquationWiFi/blob/main/screenshots/details.PNG?raw=true "Screenshot")
