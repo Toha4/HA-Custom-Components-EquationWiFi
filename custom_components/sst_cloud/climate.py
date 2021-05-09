@@ -58,13 +58,14 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the generic thermostat platform."""
-    async_add_entities([SstClimate(config)])
+    async_add_entities([SstClimate(hass, config)])
 
 
 class SstClimate(ClimateDevice, RestoreEntity):
 
-    def __init__(self, config):
-        self._thermostat = SstCloudClient(config.get(CONF_USERNAME), config.get(CONF_PASSWORD))
+    def __init__(self, hass, config):
+        self.hass = hass
+        self._thermostat = SstCloudClient(hass, config.get(CONF_USERNAME), config.get(CONF_PASSWORD))
         self._home_id = None
         self._device_id = None
 
@@ -198,7 +199,7 @@ class SstClimate(ClimateDevice, RestoreEntity):
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             target_temp = int(kwargs.get(ATTR_TEMPERATURE))
 
-            if self._thermostat.setTemperatureManual(self._home_id, self._device_id, target_temp):
+            if await self._thermostat.set_temperature_manual(self._home_id, self._device_id, target_temp):
                 # Save temperatures for future use
                 if self._preset_mode == PRESET_AWAY:
                     self._away_setpoint = target_temp
@@ -210,13 +211,13 @@ class SstClimate(ClimateDevice, RestoreEntity):
     async def async_set_hvac_mode(self, hvac_mode) -> None:
         """Set operation mode."""
         if hvac_mode == HVAC_MODE_OFF:
-            self._thermostat.setTemperatureControllerOff(self._home_id, self._device_id)
+            await self._thermostat.set_temperature_controller_off(self._home_id, self._device_id)
         else:
-            self._thermostat.setTemperatureControllerOn(self._home_id, self._device_id)
+            await self._thermostat.set_temperature_controller_on(self._home_id, self._device_id)
             if hvac_mode == HVAC_MODE_AUTO:
-                self._thermostat.setMode(self._home_id, self._device_id, 'chart')
+                await self._thermostat.set_mode(self._home_id, self._device_id, 'chart')
             elif hvac_mode == HVAC_MODE_HEAT:
-                self._thermostat.setMode(self._home_id, self._device_id, 'manual')
+                await self._thermostat.set_mode(self._home_id, self._device_id, 'manual')
 
         await self.async_update_ha_state()
 
@@ -224,16 +225,16 @@ class SstClimate(ClimateDevice, RestoreEntity):
         """Set new preset mode."""
         self._preset_mode = preset_mode
 
-        self._thermostat.setTemperatureControllerOn(self._home_id, self._device_id)
-        self._thermostat.setMode(self._home_id, self._device_id, 'manual')
+        await self._thermostat.set_temperature_controller_on(self._home_id, self._device_id)
+        await self._thermostat.set_mode(self._home_id, self._device_id, 'manual')
         if self._preset_mode == PRESET_AWAY:
-            self._thermostat.setTemperatureManual(self._home_id, self._device_id, self._away_setpoint)
+            await self._thermostat.set_temperature_manual(self._home_id, self._device_id, self._away_setpoint)
         elif self._preset_mode == PRESET_NONE:
-            self._thermostat.setTemperatureManual(self._home_id, self._device_id, self._manual_setpoint)
+            await self._thermostat.set_temperature_manual(self._home_id, self._device_id, self._manual_setpoint)
         elif self._preset_mode == PRESET_BOOST:
-            self._thermostat.setTemperatureManual(self._home_id, self._device_id, self._boost_setpoint)
+            await self._thermostat.set_temperature_manual(self._home_id, self._device_id, self._boost_setpoint)
         elif self._preset_mode == PRESET_SLEEP:
-            self._thermostat.setTemperatureManual(self._home_id, self._device_id, self._sleep_setpoint)
+            await self._thermostat.set_temperature_manual(self._home_id, self._device_id, self._sleep_setpoint)
 
         await self.async_update_ha_state()
 
@@ -248,38 +249,38 @@ class SstClimate(ClimateDevice, RestoreEntity):
 
     async def async_update(self) -> None:
         """Get thermostat info"""
-        data = None
-        if self._thermostat._populate_full_data(True):
+        current_data = None
+        if await self._thermostat.async_populate_full_data(True):
             self._home_id = self._thermostat.homes_data[0]['id']
             self._device_id = self._thermostat.full_data[self._home_id]['Devices'][0]['id']
 
-            data = self._thermostat.getFullData(self._home_id)
+            current_data = self._thermostat.get_data(self._home_id, self._device_id)
         else:
-            _LOGGER.warning("Thermostat error _populate_full_data")
+            _LOGGER.warning("Thermostat error populate_full_data")
 
-        if not data:
+        if current_data is None:
             return
 
+        _LOGGER.debug(f"Update data: {current_data}")
+
         # Temperatures
-        self._room_temp = data['Devices'][0]['parsed_configuration']['settings']['temperature_air']
-        self._thermostat_current_temp \
-            = data['Devices'][0]['parsed_configuration']['current_temperature']['temperature_floor']
-        self._thermostat_target_temp \
-            = data['Devices'][0]['parsed_configuration']['settings']['temperature_manual']
+        self._room_temp = current_data['temperature_air']
+        self._thermostat_current_temp = current_data['temperature_floor']
+        self._thermostat_target_temp = current_data['temperature_manual']
 
         # Additionally
-        self._signal_level = data['Devices'][0]['parsed_configuration']['signal_level']
-        self._relay_status = data['Devices'][0]['parsed_configuration']['relay_status']
-        self._power_relay_time = data['Devices'][0]['power_relay_time']
+        self._signal_level = current_data['signal_level']
+        self._relay_status = current_data['relay_status']
+        self._power_relay_time = current_data['power_relay_time']
 
         # Thermostat modes & status
-        if data['Devices'][0]['parsed_configuration']['settings']['status'] == 'off':
+        if current_data['status'] == 'off':
             # Unset away mode
             self._preset_mode = PRESET_NONE
             self._thermostat_current_mode = HVAC_MODE_OFF
         else:
             # Set mode to manual when overridden auto mode or thermostat is in manual mode
-            if data['Devices'][0]['parsed_configuration']['settings']['mode'] == 'manual':
+            if current_data['mode'] == 'manual':
                 self._thermostat_current_mode = HVAC_MODE_HEAT
             else:
                 # Unset away mode
@@ -287,11 +288,9 @@ class SstClimate(ClimateDevice, RestoreEntity):
                 self._thermostat_current_mode = HVAC_MODE_AUTO
 
         # Thermostat action
-        if data['Devices'][0]['parsed_configuration']['settings']['status'] == 'on' \
-                and data['Devices'][0]['parsed_configuration']['relay_status'] == 'on':
+        if current_data['status'] == 'on' and current_data['relay_status'] == 'on':
             self._thermostat_current_action = CURRENT_HVAC_HEAT
-        elif data['Devices'][0]['parsed_configuration']['settings']['status'] == 'on' \
-                and data['Devices'][0]['parsed_configuration']['relay_status'] == 'on':
+        elif current_data['status'] == 'on' and current_data['relay_status'] == 'off':
             self._thermostat_current_action = CURRENT_HVAC_IDLE
-        elif data['Devices'][0]['parsed_configuration']['settings']['status'] == 'off':
+        elif current_data['status'] == 'off':
             self._thermostat_current_action = CURRENT_HVAC_OFF
