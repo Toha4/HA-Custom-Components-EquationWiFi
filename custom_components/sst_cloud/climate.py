@@ -10,7 +10,7 @@ from custom_components.sst_cloud.SstCloudClient import (
     CONF_PASSWORD
 )
 
-from homeassistant.components.climate import ClimateDevice, PLATFORM_SCHEMA
+from homeassistant.components.climate import ClimateEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util.temperature import convert as convert_temperature
 from homeassistant.components.climate.const import (
@@ -61,7 +61,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities([SstClimate(hass, config)])
 
 
-class SstClimate(ClimateDevice, RestoreEntity):
+class SstClimate(ClimateEntity, RestoreEntity):
 
     def __init__(self, hass, config):
         self.hass = hass
