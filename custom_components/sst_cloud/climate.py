@@ -1,5 +1,4 @@
 import logging
-from socket import timeout
 from typing import List, Optional
 
 import voluptuous as vol
@@ -12,7 +11,7 @@ from custom_components.sst_cloud.SstCloudClient import (
 
 from homeassistant.components.climate import ClimateEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.util.temperature import convert as convert_temperature
+from homeassistant.util.unit_conversion import TemperatureConverter
 from homeassistant.components.climate.const import (
     HVAC_MODE_OFF,
     HVAC_MODE_HEAT,
@@ -160,13 +159,13 @@ class SstClimate(ClimateEntity, RestoreEntity):
     @property
     def min_temp(self) -> float:
         """Return the minimum temperature."""
-        return convert_temperature(self._min_temp, TEMP_CELSIUS,
+        return TemperatureConverter.convert(self._min_temp, TEMP_CELSIUS,
                                    self.temperature_unit)
 
     @property
     def max_temp(self) -> float:
         """Return the maximum temperature."""
-        return convert_temperature(self._max_temp, TEMP_CELSIUS,
+        return TemperatureConverter.convert(self._max_temp, TEMP_CELSIUS,
                                    self.temperature_unit)
 
     @property
