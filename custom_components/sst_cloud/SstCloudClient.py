@@ -1,7 +1,7 @@
 from __future__ import print_function
+import asyncio
 import requests
 import json
-import time
 import datetime
 import logging
 import functools
@@ -117,7 +117,7 @@ class SstCloudClient:
         func = functools.partial(requests.post, url, json=data, headers=self.headers, cookies=self.user_data)
         response = await self.hass.async_add_executor_job(func)
 
-        time.sleep(10)
+        await asyncio.sleep(10)
 
         if response.ok:
             _LOGGER.debug(f"Set status '{'on' if value else 'off'}' successfully")
@@ -137,7 +137,7 @@ class SstCloudClient:
         func = functools.partial(requests.post, url, json=data, headers=self.headers, cookies=self.user_data)
         response = await self.hass.async_add_executor_job(func)
 
-        time.sleep(10)
+        await asyncio.sleep(10)
 
         if response.ok:
             _LOGGER.debug(f"Set temperature '{temperature}' successfully")
@@ -151,7 +151,7 @@ class SstCloudClient:
         func = functools.partial(requests.post, url, json=data, headers=self.headers, cookies=self.user_data)
         response = await self.hass.async_add_executor_job(func)
 
-        time.sleep(10)
+        await asyncio.sleep(10)
 
         if response.ok:
             _LOGGER.debug(f"Set mode '{mode}' successfully")
