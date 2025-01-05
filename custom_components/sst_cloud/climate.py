@@ -13,27 +13,20 @@ from homeassistant.components.climate import ClimateEntity, PLATFORM_SCHEMA
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util.unit_conversion import TemperatureConverter
 from homeassistant.components.climate.const import (
-    HVAC_MODE_OFF,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_AUTO,
-    CURRENT_HVAC_OFF,
-    CURRENT_HVAC_HEAT,
-    CURRENT_HVAC_IDLE,
     PRESET_NONE,
     PRESET_AWAY,
     PRESET_BOOST,
     PRESET_SLEEP,
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_PRESET_MODE
 )
+from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode, HVACAction
 
 from homeassistant.const import (
     PRECISION_HALVES,
     ATTR_TEMPERATURE,
     PRECISION_HALVES,
-    TEMP_CELSIUS,
     CONF_NAME
 )
+from homeassistant.const import UnitOfTemperature
 
 CONF_MIN_TEMP = "min_temp"
 CONF_MAX_TEMP = "max_temp"
@@ -90,6 +83,9 @@ class SstClimate(ClimateEntity, RestoreEntity):
         self._thermostat_current_temp = None
         self._thermostat_target_temp = None
 
+        self._enable_turn_on_off_backwards_compatibility = False
+        self._attr_supported_features = ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
+
 
     @property
     def name(self) -> str:
@@ -104,7 +100,7 @@ class SstClimate(ClimateEntity, RestoreEntity):
     @property
     def temperature_unit(self) -> str:
         """Return the unit of measurement."""
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def hvac_mode(self) -> str:
@@ -118,7 +114,7 @@ class SstClimate(ClimateEntity, RestoreEntity):
         """Return the list of available hvac operation modes.
         Need to be a subset of HVAC_MODES.
         """
-        return [HVAC_MODE_AUTO, HVAC_MODE_HEAT, HVAC_MODE_OFF]
+        return [HVACMode.AUTO, HVACMode.HEAT, HVACMode.OFF]
 
     @property
     def hvac_action(self) -> Optional[str]:
@@ -130,14 +126,14 @@ class SstClimate(ClimateEntity, RestoreEntity):
     @property
     def preset_mode(self) -> Optional[str]:
         """Return the current preset mode, e.g., home, away, temp.
-        Requires SUPPORT_PRESET_MODE.
+        Requires ClimateEntityFeature.PRESET_MODE.
         """
         return self._preset_mode
 
     @property
     def preset_modes(self) -> Optional[List[str]]:
         """Return a list of available preset modes.
-        Requires SUPPORT_PRESET_MODE.
+        Requires ClimateEntityFeature.PRESET_MODE.
         """
         return [PRESET_NONE, PRESET_AWAY, PRESET_BOOST, PRESET_SLEEP]
 
@@ -154,18 +150,18 @@ class SstClimate(ClimateEntity, RestoreEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
+        return ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
 
     @property
     def min_temp(self) -> float:
         """Return the minimum temperature."""
-        return TemperatureConverter.convert(self._min_temp, TEMP_CELSIUS,
+        return TemperatureConverter.convert(self._min_temp, UnitOfTemperature.CELSIUS,
                                    self.temperature_unit)
 
     @property
     def max_temp(self) -> float:
         """Return the maximum temperature."""
-        return TemperatureConverter.convert(self._max_temp, TEMP_CELSIUS,
+        return TemperatureConverter.convert(self._max_temp, UnitOfTemperature.CELSIUS,
                                    self.temperature_unit)
 
     @property
@@ -209,13 +205,13 @@ class SstClimate(ClimateEntity, RestoreEntity):
 
     async def async_set_hvac_mode(self, hvac_mode) -> None:
         """Set operation mode."""
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF:
             await self._thermostat.set_temperature_controller_off(self._home_id, self._device_id)
         else:
             await self._thermostat.set_temperature_controller_on(self._home_id, self._device_id)
-            if hvac_mode == HVAC_MODE_AUTO:
+            if hvac_mode == HVACMode.AUTO:
                 await self._thermostat.set_mode(self._home_id, self._device_id, 'chart')
-            elif hvac_mode == HVAC_MODE_HEAT:
+            elif hvac_mode == HVACMode.HEAT:
                 await self._thermostat.set_mode(self._home_id, self._device_id, 'manual')
 
         await self.async_update_ha_state()
@@ -237,14 +233,13 @@ class SstClimate(ClimateEntity, RestoreEntity):
 
         await self.async_update_ha_state()
 
-
     async def async_turn_off(self) -> None:
         """Turn thermostat off"""
-        await self.async_set_hvac_mode(HVAC_MODE_OFF)
+        await self.async_set_hvac_mode(HVACMode.OFF)
 
     async def async_turn_on(self) -> None:
         """Turn thermostat on"""
-        await self.async_set_hvac_mode(HVAC_MODE_HEAT)
+        await self.async_set_hvac_mode(HVACMode.HEAT)
 
     async def async_update(self) -> None:
         """Get thermostat info"""
@@ -276,20 +271,20 @@ class SstClimate(ClimateEntity, RestoreEntity):
         if current_data['status'] == 'off':
             # Unset away mode
             self._preset_mode = PRESET_NONE
-            self._thermostat_current_mode = HVAC_MODE_OFF
+            self._thermostat_current_mode = HVACMode.OFF
         else:
             # Set mode to manual when overridden auto mode or thermostat is in manual mode
             if current_data['mode'] == 'manual':
-                self._thermostat_current_mode = HVAC_MODE_HEAT
+                self._thermostat_current_mode = HVACMode.HEAT
             else:
                 # Unset away mode
                 self._preset_mode = PRESET_NONE
-                self._thermostat_current_mode = HVAC_MODE_AUTO
+                self._thermostat_current_mode = HVACMode.AUTO
 
         # Thermostat action
         if current_data['status'] == 'on' and current_data['relay_status'] == 'on':
-            self._thermostat_current_action = CURRENT_HVAC_HEAT
+            self._thermostat_current_action = HVACAction.HEATING
         elif current_data['status'] == 'on' and current_data['relay_status'] == 'off':
-            self._thermostat_current_action = CURRENT_HVAC_IDLE
+            self._thermostat_current_action = HVACAction.IDLE
         elif current_data['status'] == 'off':
-            self._thermostat_current_action = CURRENT_HVAC_OFF
+            self._thermostat_current_action = HVACAction.OFF
